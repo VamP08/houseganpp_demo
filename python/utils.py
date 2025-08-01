@@ -17,10 +17,14 @@
 import json, os, random, math
 from collections import defaultdict
 
+import os.path
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as T
-
+from python.viz import draw_masks
 import numpy as np
 import PIL
 import networkx as nx

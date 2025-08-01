@@ -3,7 +3,7 @@ import os
 import numpy as np
 import math
 
-import torchvision.transforms as transforms
+import torchvision as transforms
 from torchvision.utils import save_image
 from torch.utils.data import DataLoader
 from torchvision import datasets
@@ -12,9 +12,65 @@ import torch.autograd as autograd
 
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils import spectral_norm
 import torch
+import torch.optim as optim
 from PIL import Image, ImageDraw, ImageOps
 
+
+class DoubleConv(nn.Module):
+     def __init__(self, in_channels, out_channels):
+         super(DoubleConv, self).__init__()
+         self.conv = nn.Sequential(
+             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+             nn.BatchNorm2d(out_channels),
+             nn.ReLU(inplace=True),
+             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+             nn.BatchNorm2d(out_channels),
+             nn.ReLU(inplace=True)
+         )
+
+     def forward(self, x):
+         return self.conv(x)
+
+class Down(nn.Module):
+     def __init__(self, in_channels, out_channels):
+         super(Down, self).__init__()
+         self.maxpool_conv = nn.Sequential(
+             nn.MaxPool2d(2),
+             DoubleConv(in_channels, out_channels)
+         )
+
+     def forward(self, x):
+         return self.maxpool_conv(x)
+
+class Up(nn.Module):
+     def __init__(self, in_channels, out_channels, bilinear=True):
+         super(Up, self).__init__()
+         if bilinear:
+             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+         else:
+             self.up = nn.ConvTranspose2d(in_channels, out_channels // 2, kernel_size=2, stride=2)
+         self.conv = DoubleConv(in_channels, out_channels)
+
+     def forward(self, x1, x2):
+         # x1 is the feature map from a previous upsampling layer
+         # x2 is the corresponding feature map from the downsampling path
+         x1 = self.up(x1)
+         diffY = x2.size()[2] - x1.size()[2]
+         diffX = x2.size()[3] - x1.size()[3]
+         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+                         diffY // 2, diffY - diffY // 2])
+         x = torch.cat([x2, x1], dim=1)
+         return self.conv(x)
+
+class OutConv(nn.Module):
+     def __init__(self, in_channels, out_channels):
+         super(OutConv, self).__init__()
+         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+     def forward(self, x):
+         return self.conv(x)
 
 def add_pool(x, nd_to_sample):
     dtype, device = x.dtype, x.device

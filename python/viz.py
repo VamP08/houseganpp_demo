@@ -4,8 +4,11 @@ import numpy as np
 import math
 import sys
 import random
+import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from collections import defaultdict
+import networkx as nx
+
 # import matplotlib.pyplot as plt
 # import networkx as nx
 import glob
